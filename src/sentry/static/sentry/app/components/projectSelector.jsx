@@ -34,6 +34,9 @@ class ProjectSelector extends React.Component {
     multiProjects: PropTypes.arrayOf(
       PropTypes.oneOfType([PropTypes.string, SentryTypes.Project])
     ),
+    nonMemberProjects: PropTypes.arrayOf(
+      PropTypes.oneOfType([PropTypes.string, SentryTypes.Project])
+    ),
 
     // Render a footer at the bottom of the list
     // render function that is passed an `actions` object with `close` and `open` properties.
@@ -79,18 +82,24 @@ class ProjectSelector extends React.Component {
   getActiveProject() {
     const {projectId} = this.props;
 
-    const projects = this.getProjects();
+    const projects = this.getProjects().flat();
 
     return projects.find(({slug}) => slug === projectId);
   }
 
   getProjects() {
-    const {organization, projects, multiProjects} = this.props;
+    const {organization, projects, multiProjects, nonMemberProjects} = this.props;
 
     if (multiProjects) {
-      return multiProjects;
+      return [
+        sortArray(multiProjects, project => {
+          return [!project.isBookmarked, project.name];
+        }),
+        nonMemberProjects,
+      ];
     }
 
+    // Legacy
     const {isSuperuser} = ConfigStore.get('user');
     const unfilteredProjects = projects || organization.projects;
 
@@ -98,9 +107,12 @@ class ProjectSelector extends React.Component {
       ? unfilteredProjects
       : unfilteredProjects.filter(project => project.isMember);
 
-    return sortArray(filteredProjects, project => {
-      return [!project.isBookmarked, project.name];
-    });
+    return [
+      sortArray(filteredProjects, project => {
+        return [!project.isBookmarked, project.name];
+      }),
+      [],
+    ];
   }
 
   isControlled = () => typeof this.props.selectedProjects !== 'undefined';
@@ -182,13 +194,44 @@ class ProjectSelector extends React.Component {
     const {activeProject} = this.state;
     const access = new Set(org.access);
 
-    const projects = this.getProjects();
-    const projectList = sortArray(projects, project => {
-      return [!project.isBookmarked, project.name];
+    const [projects, nonMemberProjects] = this.getProjects();
+
+    const hasProjects = projects && !!projects.length;
+    const hasProjectWrite = access.has('project:write');
+
+    const getProjectItem = project => ({
+      value: project,
+      searchKey: project.slug,
+      label: ({inputValue}) => (
+        <ProjectSelectorItem
+          something="test"
+          project={project}
+          organization={org}
+          multi={multi}
+          inputValue={inputValue}
+          isChecked={
+            this.isControlled()
+              ? !!this.props.selectedProjects.find(({slug}) => slug === project.slug)
+              : this.state.selectedProjects.has(project.slug)
+          }
+          style={{padding: 0}}
+          onMultiSelect={this.handleMultiSelect}
+        />
+      ),
     });
 
-    const hasProjects = projectList && !!projectList.length;
-    const hasProjectWrite = access.has('project:write');
+    const projectList = [
+      {
+        hideGroupLabel: true,
+        items: projects.map(getProjectItem),
+      },
+      {
+        hideGroupLabel: nonMemberProjects.length === 0,
+        itemSize: 'small',
+        label: <div style={{height: '20px'}}>{t("Projects I don't belong to")}</div>,
+        items: nonMemberProjects.map(getProjectItem),
+      },
+    ];
 
     return (
       <DropdownAutoComplete
@@ -245,24 +288,7 @@ class ProjectSelector extends React.Component {
             </React.Fragment>
           );
         }}
-        items={projectList.map(project => ({
-          value: project,
-          searchKey: project.slug,
-          label: ({inputValue}) => (
-            <ProjectSelectorItem
-              project={project}
-              organization={org}
-              multi={multi}
-              inputValue={inputValue}
-              isChecked={
-                this.isControlled()
-                  ? !!this.props.selectedProjects.find(({slug}) => slug === project.slug)
-                  : this.state.selectedProjects.has(project.slug)
-              }
-              onMultiSelect={this.handleMultiSelect}
-            />
-          ),
-        }))}
+        items={projectList}
       >
         {renderProps =>
           children({
