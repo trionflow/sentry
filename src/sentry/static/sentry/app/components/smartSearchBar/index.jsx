@@ -1,3 +1,4 @@
+import {browserHistory} from 'react-router';
 import PropTypes from 'prop-types';
 import React from 'react';
 import Reflux from 'reflux';
@@ -17,12 +18,12 @@ import {
 } from 'app/actionCreators/savedSearches';
 import {t} from 'app/locale';
 import Button from 'app/components/button';
+import CreateSavedSearchButton from 'app/views/stream/createSavedSearchButton';
 import InlineSvg from 'app/components/inlineSvg';
 import MemberListStore from 'app/stores/memberListStore';
-import CreateSavedSearchButton from 'app/views/stream/createSavedSearchButton';
 import SentryTypes from 'app/sentryTypes';
-import space from 'app/styles/space';
 import Tooltip from 'app/components/tooltip';
+import space from 'app/styles/space';
 import withApi from 'app/utils/withApi';
 import withOrganization from 'app/utils/withOrganization';
 
@@ -533,9 +534,25 @@ class SmartSearchBar extends React.Component {
     }
 
     if (!!pinnedSearch) {
-      unpinSearch(api, organization.slug, savedSearchType, pinnedSearch);
+      unpinSearch(api, organization.slug, savedSearchType, pinnedSearch).then(() => {
+        browserHistory.push({
+          pathname: `/organizations/${organization.slug}/issues/`,
+          query: {query: pinnedSearch.query},
+        });
+      });
     } else {
-      pinSearch(api, organization.slug, savedSearchType, this.state.query);
+      pinSearch(
+        api,
+        organization.slug,
+        savedSearchType,
+        removeSpace(this.state.query)
+      ).then(resp => {
+        if (resp && resp.id) {
+          browserHistory.push(
+            `/organizations/${organization.slug}/issues/searches/${resp.id}/`
+          );
+        }
+      });
     }
   };
 
