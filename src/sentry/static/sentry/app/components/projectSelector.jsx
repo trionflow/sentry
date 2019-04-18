@@ -2,6 +2,7 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import styled from 'react-emotion';
 import {Link} from 'react-router';
+import {flatten} from 'lodash';
 
 import {analytics} from 'app/utils/analytics';
 import {sortArray} from 'app/utils';
@@ -81,8 +82,7 @@ class ProjectSelector extends React.Component {
 
   getActiveProject() {
     const {projectId} = this.props;
-
-    const projects = this.getProjects().flat();
+    const projects = flatten(this.getProjects());
 
     return projects.find(({slug}) => slug === projectId);
   }

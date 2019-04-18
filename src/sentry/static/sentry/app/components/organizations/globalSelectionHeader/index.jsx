@@ -1,4 +1,4 @@
-import {isEqual, pick, partition} from 'lodash';
+import {flatten, isEqual, pick, partition} from 'lodash';
 import {withRouter} from 'react-router';
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -317,8 +317,7 @@ class GlobalSelectionHeader extends React.Component {
   };
 
   getFirstProject = () => {
-    return this.getProjects()
-      .flat()
+    return flatten(this.getProjects())
       .map(p => parseInt(p.id, 10))
       .slice(0, 1);
   };
